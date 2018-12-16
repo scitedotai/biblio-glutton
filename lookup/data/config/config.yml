@@ -13,7 +13,7 @@ batchSize: 10000
 
 elastic:
   host: localhost:9200
-  index: crossref
+  index: crossref_new
   type: work
 
 server:
@@ -25,6 +25,9 @@ server:
   - type: http
     port: 8081
   registerDefaultExceptionMappers: false
+  maxThreads: 2048
+  maxQueuedRequests: 1024
+  acceptQueueSize: 1024
 
 logging:
   level: INFO
