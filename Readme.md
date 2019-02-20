@@ -2,13 +2,14 @@
 
 Framework dedicated to bibliographic information. It includes:
 
-- a bibliographical reference matching service: from an input such as a raw bibliographical reference or a combination of key metadata, the service will return the disambiguated bibliographical object with in particular its DOI and a set of metadata aggregated from CrossRef and other sources, 
+- a bibliographical reference matching service: from an input such as a raw bibliographical reference and/or a combination of key metadata, the service will return the disambiguated bibliographical object with in particular its DOI and a set of metadata aggregated from CrossRef and other sources, 
 - a fast metadata look-up service: from a "strong" identifier such as DOI, PMID, etc. the service will return a set of metadata aggregated from CrossRef and other sources,
 - various mapping between DOI, PMID, PMC, ISTEX ID and ark, integrated in the bibliographical service,
 - Open Access resolver: Integration of Open Access links via the Unpaywall dataset from Impactstory,
 - MeSH classes mapping for PubMed articles.
 
-The framework is designed both for speed (targeting more than 1,000 request per second for look-up) and matching accuracy. Benchmarking against the CrossRef API is work-in-progres. 
+The framework is designed both for speed (with several thousands request per second for look-up) and matching accuracy. It can be [scaled](https://github.com/kermitt2/biblio-glutton#architecture) horizontally as needed. 
+Benchmarking against the CrossRef REST API is presented [below](https://github.com/kermitt2/biblio-glutton#matching-accuracy). 
 
 ## The bibliographical look-up and matching REST API
 
@@ -63,10 +64,20 @@ The last parameter is the path where your configuration file is located - the de
     - `GET host:port/service/lookup?jtitle=JOURNAL_TITLE&volume=VOLUME&firstPage=FIRST_PAGE&firstAuthor=FIRST_AUTHOR_SURNAME`
 
 - match record by raw citation string 
-    - `GET host:port/service/lookup?biblio=BIBLIO_STRING`
+    - `GET host:port/service/lookup?biblio=BIBLIO_STRING&`
     - `POST host:port/service/lookup/biblio` with `ContentType=text/plain` 
 
-Open Access resolver API returns the OA PDF link (URL) by identifier: 
+Any combinations of these metadata and full raw citation string is possible, for instance: 
+
+    - `GET host:port/service/lookup?biblio=BIBLIO_STRING&atitle=ARTICLE_TITLE&firstAuthor=FIRST_AUTHOR_SURNAME[?postValidate=true]`
+
+or:
+
+    - `GET host:port/service/lookup?jtitle=JOURNAL_TITLE&volume=VOLUME&firstPage=FIRST_PAGE&firstAuthor=FIRST_AUTHOR_SURNAME&atitle=ARTICLE_TITLE`
+
+biblio-glutton will make the best use of all the parameters sent to retrieve in the fastest way a record and to post-validate it to avoid false positive. See [#12](https://github.com/kermitt2/biblio-glutton/issues/12). So it is advised to send as much metadata as possible to try to optimize the DOI matching in term of speed and accuracy.  
+
+In case you are only interested by the Open Access URL for a bibliographical object, the open Access resolver API returns the OA PDF link (URL) only via an identifier: 
 
 - return best Open Access URL 
     - `GET host:port/service/oa?doi=DOI` return the best Open Accss PDF url for a given DOI 
@@ -333,64 +344,75 @@ Runtime correspond to a processing on a single machine running Glutton REST API 
 ```
 ======= GLUTTON API ======= 
 
-17015 bibliographical references processed in 2625.378 seconds, 0.15429785483397004 seconds per bibliographical reference.
-Found 15672 DOI
+17015 bibliographical references processed in 2363.978 seconds, 0.13893493975903615 seconds per bibliographical reference.
+Found 16462 DOI
 
-precision:      0.9669474221541603
-recall: 0.8906259183073758
-f-score:        0.927218771988864
+precision:      0.9699307496051512
+recall: 0.9384072876873347
+f-score:        0.953908653702542
+
 ```
 
 ```
 ======= CROSSREF API ======= 
 
+17015 bibliographical references processed in 793.295 seconds, 0.04662327358213341 seconds per bibliographical reference.
+Found 16449 DOI
 
-17015 bibliographical references processed in 780.838 seconds, 0.04589115486335586 seconds per bibliographical reference.
-Found 15610 DOI
+precision:      0.9671104626421059
+recall: 0.9349397590361446
+f-score:        0.9507530480516376
 
-precision:      0.9628443305573351
-recall: 0.8833382309726712
-f-score:        0.9213793103448277
 ```
+
+Evaluation produced on 13.02.2019.
 
 ### First author lastname + title matching 
 
 ```
-======= CROSSREF API ======= 
-
-17015 bibliographical references processed in 772.363 seconds, 0.045393064942697625 seconds per bibliographical reference.
-Found 14114 DOI
-
-precision:      0.9402012186481508
-recall: 0.7799000881575081
-f-score:        0.8525811943846574
-```
-
-```
 ======= GLUTTON API ======= 
 
-17015 bibliographical references processed in 804.179 seconds, 0.04726294446076991 seconds per bibliographical reference.
-Found 15456 DOI
+17015 bibliographical references processed in 673.698 seconds, 0.039594357919482806 seconds per bibliographical reference.
+Found 16165 DOI
 
-precision:      0.9490812629399586
-recall: 0.8621216573611519
-f-score:        0.9035139047149764
+precision:      0.9466749149396845
+recall: 0.8993828974434322
+f-score:        0.9224231464737793
+
 ```
+
+```
+======= CROSSREF API ======= 
+
+17015 bibliographical references processed in 781.618 seconds, 0.04593699676755804 seconds per bibliographical reference.
+Found 15048 DOI
+
+precision:      0.9356060606060606
+recall: 0.8274463708492507
+f-score:        0.8782085269625426
+```
+
+Evaluation produced on 13.02.2019.
 
 ### Mixed strategy
 
-We process bibliographical references with a first author lastname+title matching when these metadata are extracted by GROBID, and a full raw reference string matching otherwise. We get a much faster matching rate (3 times faster), at the cost of some accuracy loss (-1.59 f-score).
+We process bibliographical references with a first author lastname+title matching, then journal name+volume+page when these metadata are extracted by GROBID, and finally a full raw reference string matching is only done when metadata-based look-ups fail. 
+We get a much faster matching rate (3 times faster), at the cost of some accuracy loss (-2. f-score). 
 
 ```
 ======= GLUTTON API ======= 
 
-17015 bibliographical references processed in 857.97 seconds, 0.05042433147223039 seconds per bibliographical reference.
-Found 15707 DOI
+17015 bibliographical references processed in 824.658 seconds, 0.04846652953276521 seconds per bibliographical reference.
+Found 16546 DOI
 
-precision:      0.9492582924810594
-recall: 0.8762856303261828
-f-score:        0.9113134893955137
+precision:      0.9469962528707845
+recall: 0.9208933294152218
+f-score:        0.9337624027889514
+
+
 ```
+
+Evaluation produced on 13.02.2019.
 
 ## ISTEX mapping
 

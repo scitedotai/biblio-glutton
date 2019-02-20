@@ -28,6 +28,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
 
+import com.fasterxml.jackson.core.*;
+import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.node.*;
+import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.core.io.*;
+
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
 public class MetadataMatching {
@@ -143,8 +149,8 @@ public class MetadataMatching {
         return QueryBuilders.boolQuery()
                 .should(QueryBuilders.matchQuery(INDEX_FIELD_NAME_JOURNAL_TITLE, title))
                 .should(QueryBuilders.matchQuery(INDEX_FIELD_ABBREVIATED_JOURNAL_TITLE, title))
-                .should(QueryBuilders.termQuery(INDEX_FIELD_NAME_VOLUME, volume))
-                .should(QueryBuilders.termQuery(INDEX_FIELD_NAME_FIRST_PAGE, firstPage));
+                .must(QueryBuilders.termQuery(INDEX_FIELD_NAME_VOLUME, volume))
+                .must(QueryBuilders.termQuery(INDEX_FIELD_NAME_FIRST_PAGE, firstPage));
     }
 
     private void validateInput(String title, String volume, String firstPage) {
@@ -193,8 +199,8 @@ public class MetadataMatching {
         return QueryBuilders.boolQuery()
                 .should(QueryBuilders.matchQuery(INDEX_FIELD_NAME_JOURNAL_TITLE, title))
                 .should(QueryBuilders.matchQuery(INDEX_FIELD_ABBREVIATED_JOURNAL_TITLE, title))
-                .should(QueryBuilders.termQuery(INDEX_FIELD_NAME_VOLUME, volume))
-                .should(QueryBuilders.termQuery(INDEX_FIELD_NAME_FIRST_PAGE, firstPage))
+                .must(QueryBuilders.termQuery(INDEX_FIELD_NAME_VOLUME, volume))
+                .must(QueryBuilders.termQuery(INDEX_FIELD_NAME_FIRST_PAGE, firstPage))
                 .should(QueryBuilders.termQuery(INDEX_FIELD_NAME_FIRST_AUTHOR, firstAuthor));
     }
 
@@ -291,6 +297,7 @@ public class MetadataMatching {
 
             String DOI = (String) hit.getSourceAsMap().get(INDEX_FIELD_NAME_DOI);
             String firstAuthor = (String) hit.getSourceAsMap().get(INDEX_FIELD_NAME_FIRST_AUTHOR);
+
             final List<String> titles = (List<String>) hit.getSourceAsMap().get(INDEX_FIELD_NAME_TITLE);
             String title = "";
             if (CollectionUtils.isNotEmpty(titles)) {
@@ -306,6 +313,29 @@ public class MetadataMatching {
                 return matchingDocument;
             }
             matchingDocument.setJsonObject(jsonObject);
+
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode item = mapper.readTree(jsonObject);
+                if (item.isObject()) {
+                    JsonNode authorsNode = item.get("author");
+                    if (authorsNode != null && (!authorsNode.isMissingNode()) && 
+                        authorsNode.isArray() && (((ArrayNode)authorsNode).size() > 0)) {
+                        Iterator<JsonNode> authorIt = ((ArrayNode)authorsNode).elements();
+                        while (authorIt.hasNext()) {
+                            JsonNode authorNode = authorIt.next();
+
+                            if (authorNode.get("family") != null && !authorNode.get("family").isMissingNode()) {
+                                matchingDocument.setFirstAuthor(authorNode.get("family").asText());
+                                break;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                LOGGER.warn("Invalid JSON object", e);
+            }
+
 
             return matchingDocument;
         }
