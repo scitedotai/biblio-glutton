@@ -11,6 +11,12 @@ Framework dedicated to bibliographic information. It includes:
 The framework is designed both for speed (with several thousands request per second for look-up) and matching accuracy. It can be [scaled](https://github.com/kermitt2/biblio-glutton#architecture) horizontally as needed. 
 Benchmarking against the CrossRef REST API is presented [below](https://github.com/kermitt2/biblio-glutton#matching-accuracy). 
 
+In the Glutton family, the following complementary tools are available for taking advantage of Open Access resources: 
+
+* [biblio-glutton-harvester](https://github.com/kermitt2/biblio-glutton-harvester): A robust, fault tolerant, Python utility for harvesting efficiently (multi-threaded) a large Open Access collection of PDF (Unpaywall, PubMed Central), with the possibility to upload content on Amazon S3,
+
+* [biblio-glutton-extension](https://github.com/kermitt2/biblio-glutton-extension): A browser extension (Firefox & Chrome) for providing bibliographical services, like identifying dynamically Open Access resources on web pages and providing contextual citation services.
+
 ## The bibliographical look-up and matching REST API
 
 Once the databases and index are built, the bibliographical REST API can be started. For building the databases and index, see the next sections below. 
@@ -34,6 +40,58 @@ java -jar build/libs/lookup-service-1.0-SNAPSHOT-onejar.jar server data/config/c
 
 The last parameter is the path where your configuration file is located - the default path being here indicated. 
 
+To check if it works, you can view a report of the data used by the service at `host:port/service/data`. For instance:
+
+> curl localhost:8080/service/data
+
+```json
+{
+    "Metadata Lookup Crossref size": "{crossref_Jsondoc=96491709}",
+    "Metadata Matching Crossref size": "96450728",
+    "DOI OA size": "{unpayWall_doiOAUrl=20246280}",
+    "PMID lookup size": "{pmid_doi2ids=19648024, pmid_pmc2ids=4991296, pmid_pmid2ids=29010455}",
+    "ISTEX size": "{istex_doi2ids=20999895, istex_istex2ids=21073367}"
+}
+```
+
+### Start optional additional GROBID service
+
+biblio-glutton takes advantage of GROBID for parsing raw bibliographical references. This permits faster and more accurate bibliographical record matching. To use GROBID service:
+
+* first download and install GROBID as indicated in the [documentation](https://grobid.readthedocs.io/en/latest/Install-Grobid/)
+
+* start the service as documented [here](https://grobid.readthedocs.io/en/latest/Grobid-service/). You can change the `port` used by GROBID by updating the service config file under `grobid/grobid-service/config/config.yaml`  
+
+* update if necessary the host and port information of GROBID in the biblio-glutton config file under `data/config/config.yml` (parameter `grobidPath`).
+
+While GROBID is not required for running biblio-glutton, in particular if it is used only for bibliographical look-up, it is recommended for performing bibliographical record matching. 
+
+
+### Running with Docker
+
+A Docker Compose file is included to make it easier to spin up biblio-glutton, Elasticsearch, and GROBID.
+
+First, [install Docker](https://docs.docker.com/install/).
+
+Then, run this command to spin everything up:
+
+    $ docker-compose up --build -d
+
+You can run this command to see aggregated log output:
+
+    $ docker-compose logs
+
+Once everything has booted up, biblio-glutton will be running at http://localhost:8080 and GROBID will be at http://localhost:8070.
+
+To load data, you can use the `docker-compose run` command. The `data/` directory is mounted inside the container. For example, this command will load Crossref data (as described in more detail [below](https://github.com/kermitt2/biblio-glutton#resources)):
+
+    $ docker-compose run biblio java -jar lookup/build/libs/lookup-service-1.0-SNAPSHOT-onejar.jar crossref --input data/crossref-works.2018-09-05.json.xz lookup/data/config/config.yml
+
+You will need to load similarly the other resources, as detailed [here](https://github.com/kermitt2/biblio-glutton#resources). 
+
+__Important Note__: this Docker is a way to test and play with the biblio-glutton service, because all the service components are bundled into one container. It might also fit simple needs. However, it is not a solution for scaling and deploying a service requiring high performance bibliographic matching, see [this section](https://github.com/kermitt2/biblio-glutton#building-the-bibliographical-data-look-up-and-matching-databases) for more information. 
+
+
 ### REST API
 
 - match record by DOI
@@ -51,6 +109,10 @@ The last parameter is the path where your configuration file is located - the de
 - match record by ISTEX ID
     - `GET host:port/service/lookup?istexid=ISTEXID`
     - `GET host:port/service/lookup/istexid/{ISTEXID}`
+            
+- match record by PII ID
+    - `GET host:port/service/lookup?pii=PII`
+    - `GET host:port/service/lookup/pii/{PII}`   
 
 - match record by article title and first author lastname
     - `GET host:port/service/lookup?atitle=ARTICLE_TITLE&firstAuthor=FIRST_AUTHOR_SURNAME[?postValidate=true]`
@@ -79,10 +141,17 @@ biblio-glutton will make the best use of all the parameters sent to retrieve in 
 
 In case you are only interested by the Open Access URL for a bibliographical object, the open Access resolver API returns the OA PDF link (URL) only via an identifier: 
 
-- return best Open Access URL 
+- return the best Open Access URL if available
     - `GET host:port/service/oa?doi=DOI` return the best Open Accss PDF url for a given DOI 
     - `GET host:port/service/oa?pmid=PMID` return the best Open Accss PDF url for a given PMID 
     - `GET host:port/service/oa?pmc=PMC` return the best Open Accss PDF url for a given PMC ID
+    - `GET host:port/service/oa?pii=PII` return the best Open Accss PDF url for a given PII ID
+
+- return the best Open Access URL and ISTEX PDF URL if available
+    - `GET host:port/service/oa_istex?doi=DOI` return the best Open Accss PDF url and ISTEX PDF url for a given DOI 
+    - `GET host:port/service/oa_istex?pmid=PMID` return the best Open Accss PDF url and ISTEX PDF url for a given PMID 
+    - `GET host:port/service/oa_istex?pmc=PMC` return the best Open Accss PDF url and ISTEX PDF url for a given PMC ID
+    - `GET host:port/service/oa_istex?pii=PII` return the best Open Accss PDF url and ISTEX PDF url for a given PII ID
 
 ### cURL examples
 
@@ -120,6 +189,12 @@ Bibliographical metadata lookup by PMC ID (note that the `PMC` prefix in the ide
 curl http://localhost:8080/service/lookup?pmc=PMC1017419
 ```
 
+Bibliographical metadata lookup by PII ID:
+
+```sh
+curl http://localhost:8080/service/lookup?pii=
+```
+
 Bibliographical metadata lookup by ISTEX ID:
 
 ```sh
@@ -130,6 +205,12 @@ Open Access resolver by DOI:
 
 ```sh
 curl "http://localhost:8080/service/oa?doi=10.1038/nature12373"
+```
+
+Combination of Open Access resolver and ISTEX identifier by DOI:
+
+```sh
+curl "http://localhost:8080/service/oa_istex?doi=10.1038/nature12373"
 ```
 
 ## Building the bibliographical data look-up and matching databases
@@ -250,6 +331,8 @@ Note: see bellow how to create this mapping file `istexIds.all.gz`.
 
 ### Build the Elasticsearch index
 
+Elasticsearch 6 is required. It is not compatible with Elasticsearch >=7.
+
 A node.js utility under the subdirectory `matching/` is used to build the Elasticsearch index. It will take a couple of hours for the 100M crossref entries.
 
 #### Install and configure
@@ -307,7 +390,7 @@ Limits:
 
 ### How to run the evaluation
 
-Creation of the dataset and evaluation are realized in GROBID:
+You can use the DOI matching evaluation set (with 17,015 bibliographical reference/DOI pairs) from the indicated above address ([here](doc/references-doi-matching.json.gz)) or recreate this dataset with GROBID as follow:
 
 - [Install GROBID](https://grobid.readthedocs.io/en/latest/Install-Grobid/).
 
@@ -317,7 +400,9 @@ Creation of the dataset and evaluation are realized in GROBID:
 
 > ./gradlew PrepareDOIMatching -Pp2t=ABS_PATH_TO_PMC/PMC_sample_1943 
     
-- Launch an evaluation: 
+The evaluation dataset will be saved under `ABS_PATH_TO_PMC/PMC_sample_1943` with the name `references-doi-matching.json`
+
+- For launching an evaluation: 
 
 1) Select the matching method (`crossref` or `glutton`) in the `grobid-home/config/grobid.properties` file: 
 
@@ -331,7 +416,7 @@ grobid.consolidation.service=glutton
 
 2) If Glutton is setected, start the Glutton server as indicated above (we assume that it is running at `localhost:8080`).
 
-3) Launch from GROBID the evaluation: 
+3) Launch from GROBID the evaluation, indicating the path where the evaluation dataset has been created - here we suppose that the file `references-doi-matching.json` has been saved under `ABS_PATH_TO_PMC/PMC_sample_1943`: 
 
 > ./gradlew EvaluateDOIMatching -Pp2t=ABS_PATH_TO_PMC/PMC_sample_1943
 
@@ -408,7 +493,6 @@ Found 16546 DOI
 precision:      0.9469962528707845
 recall: 0.9208933294152218
 f-score:        0.9337624027889514
-
 
 ```
 

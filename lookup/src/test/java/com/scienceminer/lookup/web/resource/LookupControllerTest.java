@@ -60,11 +60,11 @@ public class LookupControllerTest {
         expect(mockMetadataLookup.retrieveByMetadata(myDOI)).andReturn(response);
         expect(mockIstexLookup.retrieveByDoi(myDOI)).andReturn(null);
         expect(mockPmidsLookup.retrieveIdsByDoi(myDOI)).andReturn(null);
-        expect(mockOALookup.retrieveOALinkByDoi(myDOI)).andReturn(null);
+        expect(mockOALookup.retrieveOaLinkByDoi(myDOI)).andReturn(null);
         expect(mockedAsyncResponse.resume(response.getJsonObject())).andReturn(true);
 
         replay(mockMetadataLookup, mockedAsyncResponse, mockPmidsLookup, mockOALookup, mockIstexLookup, mockMetadataMatching);
-        target.getByQuery(myDOI, null, null, null, firstAuthor, atitle,
+        target.getByQuery(myDOI, null, null, null, null, firstAuthor, atitle,
                 postValidate, null, null, null, null, null, mockedAsyncResponse);
 
         verify(mockMetadataLookup, mockedAsyncResponse, mockPmidsLookup, mockOALookup, mockIstexLookup, mockMetadataMatching);
@@ -74,7 +74,7 @@ public class LookupControllerTest {
      * DOI correspond to a document, postValidation is not passing
      * -> returning the json corresponding to to the result of title + first author
      */
-    //@Test
+    @Test
     public void getByQuery_DOIexists_NotPassingPostValidation_shouldReturnJSONFromTitleFirstAuthor() {
         final String myDOI = "myDOI";
         final boolean postValidate = true;
@@ -96,7 +96,7 @@ public class LookupControllerTest {
 //        expect(mockedAsyncResponse.resume(response)).andReturn(true);
 
         replay(mockMetadataLookup, mockedAsyncResponse, mockPmidsLookup, mockOALookup, mockIstexLookup, mockMetadataMatching);
-        target.getByQuery(myDOI, null, null, null, firstAuthor, atitle,
+        target.getByQuery(myDOI, null, null, null, null, firstAuthor, atitle,
                 postValidate, null, null, null, null, null, mockedAsyncResponse);
 
         verify(mockMetadataLookup, mockedAsyncResponse, mockPmidsLookup, mockOALookup, mockIstexLookup, mockMetadataMatching);
@@ -120,7 +120,7 @@ public class LookupControllerTest {
         mockMetadataMatching.retrieveByMetadataAsync(eq(atitle), eq(firstAuthor), anyObject());
 
         replay(mockMetadataLookup, mockedAsyncResponse, mockPmidsLookup, mockOALookup, mockIstexLookup, mockMetadataMatching);
-        target.getByQuery(myDOI, null, null, null, firstAuthor, atitle,
+        target.getByQuery(myDOI, null, null, null, null, firstAuthor, atitle,
                 postValidate, null, null, null, null, null, mockedAsyncResponse);
 
         verify(mockMetadataLookup, mockedAsyncResponse, mockPmidsLookup, mockOALookup, mockIstexLookup, mockMetadataMatching);

@@ -35,17 +35,17 @@ public class DataEngine {
     public Map<String, String> getDataInformation() {
         Map<String, String> returnMap = new HashMap<>();
 
-        returnMap.put("Doi OA size", String.valueOf(oaDoiLookup.getSize()));
+        returnMap.put("DOI OA size", String.valueOf(oaDoiLookup.getSize()));
         returnMap.put("Metadata Lookup Crossref size", String.valueOf(metadataLookup.getSize()));
         returnMap.put("Metadata Matching Crossref size", String.valueOf(metadataMatching.getSize()));
-        returnMap.put("Pmid lookup size", String.valueOf(pmidLookup.getSize()));
-        returnMap.put("Istex size", String.valueOf(istexLookup.getSize()));
+        returnMap.put("PMID lookup size", String.valueOf(pmidLookup.getSize()));
+        returnMap.put("ISTEX size", String.valueOf(istexLookup.getSize()));
 
         return returnMap;
     }
 
-    public List<Pair<String, String>> retrieveOaRecords(Integer total) {
-        return oaDoiLookup.retrieveOAUrlSampleList(total);
+    public List<Pair<String, String>> retrieveOaUrl(Integer total) {
+        return oaDoiLookup.retrieveOaUrlSampleList(total);
     }
 
     public List<Pair<String, PmidData>> retrievePmid_pmidToIds(Integer total) {
@@ -68,7 +68,12 @@ public class DataEngine {
         return metadataLookup.retrieveList(total);
     }
 
+    public List<Pair<String, IstexData>> retrieveIstexRecords_piiToIds(Integer total) {
+        return istexLookup.retrieveList_piiToIds(total);
+    }
+    
     //Setters
+
     protected void setOaDoiLookup(OALookup oaDoiLookup) {
         this.oaDoiLookup = oaDoiLookup;
     }
@@ -84,5 +89,4 @@ public class DataEngine {
     protected void setPmidLookup(PMIdsLookup pmidLookup) {
         this.pmidLookup = pmidLookup;
     }
-
 }
